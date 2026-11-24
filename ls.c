@@ -60,9 +60,60 @@ void indexprocess(char* s) //用于处理目录下内容
         return;
     }
 
-    int cap = 64, n = 0;
+    int cap = 64, n = 0;//cap代表能存放的文件数，n代表实际已存放的文件
     struct fileid *arr = malloc(sizeof(struct fileid) * cap);
+    if(arr == NULL)//防止arr内存分配失败
+    {
+        closedir(d);
+        return;
+    }
 
+    struct dirent *de;//新建一个类型为表示目录项的结构体dirent的变量de
+    while((d = readdir(d)) != NULL)//循环读取下一个目录项并判断其是否存在
+    {
+        if(ca['a'] == 0 && de->d_name[0] == '.')//在未输入a时过滤掉.开头的隐藏文件
+        {
+            continue;
+        }
+
+        if(n == cap)//在以存放的文件达到预设上限时对上限进行扩张(用realloc重新分配内存大小)
+        {
+            cap *= 2;
+            struct fileid *temp = realloc(arr, sizeof(struct fileid) * cap);
+            if(temp == NULL)//防止重分配失败
+            {
+                free(arr);
+                closedir(d);
+                return;
+            }
+            arr = temp;
+        }
+
+        size_t ls = strlen(s);
+        int ret;
+        if(ls > 0 && s[ls - 1] == '/')//判断目录路径s末尾是否已经带/，决定拼路径时是否再补分隔符
+        {
+            ret =  snprintf(arr[n].name, sizeof(arr[n].name), "%s%s",  s, de->d_name);
+        }else
+        {
+            ret = snprintf(arr[n].name, sizeof(arr[n].name), "%s/%s",  s, de->d_name);
+        }
+        if(ret >= (int)sizeof(arr[n].name))//判断路径是否过长
+        {
+            fprintf(stderr, "myls: path too long, skip %s\n", de->d_name);//使用fprintf将针对路径过长的警告文本写入标准错误流stderr
+            continue;
+        }
+        arr[n].inode = (long unsigned int)de->d_ino;//存入对应文件的inode
+        n++;
+    }
+    closedir(d);
+
+    for(int i = 0 ; i < n ; i++)//使用printfile逐个打印出文件名称
+    {
+        printfile(arr[i], s);
+    }
+
+    free(arr);//释放内存防止泄漏
 }
 
 void sort_dictionary(struct fileid arr[], int l, int r, char* s)//针对字典顺序的快速排序
