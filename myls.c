@@ -80,8 +80,40 @@ void sort_time(struct fileid arr[], int l, int r, char* s)
 
 char filetype(char* s) //用于区分文件类型
 {
-    (void)s;
-    return '?';                      /* 暂时返回 ?，阶段 3 换真正的 */
+    struct stat st;
+    if(lstat(s, &st) < 0)//获取目录状态信息，失败则返回负值
+    {
+        return '?';//表示类型未知
+    }
+    if(S_ISDIR(st.st_mode) != 0)
+    {
+        return 'd';//检测类型是否为目录
+    }
+    if(S_ISLNK(st.st_mode) != 0)
+    {
+        return 'l';//检测类型是否为符号连接
+    }
+    if(S_ISREG(st.st_mode) != 0)
+    {
+        return '-';//检测是否为普通文件
+    }
+    if(S_ISCHR(st.st_mode) != 0)
+    {
+        return 'c';//检测是否为字符设备
+    }
+    if(S_ISBLK(st.st_mode) != 0)
+    {
+        return 'b';//检测是否为块设备
+    }
+    if(S_ISFIFO(st.st_mode) != 0)
+    {
+        return 'p';//检测是否为命名管道
+    }
+    if(S_ISSOCK(st.st_mode) != 0)
+    {
+        return 's';//检测是否为套接字
+    }
+    return '?';//保险，理论上不使用
 }
 
 void indexprocess(char* s) //用于处理目录下内容
