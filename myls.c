@@ -21,6 +21,14 @@ struct fileid //用于存放文件路径与inode
     long unsigned int inode;
 };
 
+char filetype(char* s);//提前声明                             
+void printfile(struct fileid flid, char* s);
+void indexprocess(char* s);
+bool cmp_dictionary(char* a, char* b);
+bool cmp_time(char* a, char* b);
+void sort_dictionary(struct fileid arr[], int l, int r, char* s);
+void sort_time(struct fileid arr[], int l, int r, char* s);
+
 void printfile(struct fileid flid, char* s) //用于打印出所需内容（输入参数为包含文件名称与inode的结构体与地址）
 {
     (void)s;//暂时未使用s，先转为void防止报警
@@ -246,6 +254,11 @@ int main(int argc, char* argv[]) //主函数，读取命令行参数并加以处
     }
     for(int i = 0 ; i < pathnum ; i++)//导入函数中对目录逐个处理
     {
+        struct stat st;
+        if(lstat(paths[i], &st) == 0 && S_ISDIR(st.st_mode) != 0 && (pathnum > 1 || ca['R'] != 0))
+        {
+            printf("%s:\n", paths[i]);
+        }
         indexprocess(paths[i]);
     }
 
