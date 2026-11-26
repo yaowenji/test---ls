@@ -26,7 +26,30 @@ void printfile(struct fileid flid, char* s) //用于打印出所需内容（输�
     (void)s;//暂时未使用s，先转为void防止报警
     const char *base = strrchr(flid.name, '/');//找到最后一个‘/’
     base = (base != NULL) ? base + 1 : flid.name;//若有'/'则跳过，没有则使用整串
-    printf("%s\n", base);
+
+    struct stat st;
+    int ok = (lstat(s, &st) == 0);
+
+    if(ca['l'] != 0 && ok != 0)
+    {
+        char perm[11];//建立权限字符缓冲区
+
+        perm[0] = filetype(flid.name);//类型位
+        perm[1] = (st.st_mode & S_IRUSR) ? 'r': '-';//判断有无所有者读权限，有则'r'，无则'-'
+        perm[2] = (st.st_mode & S_IWUSR) ? 'w': '-';//判断有无所有者写权限
+        perm[3] = (st.st_mode & S_IXUSR) ? ((st.st_mode & S_ISUID) ? 's': 'x') :((st.st_mode & S_ISUID) ? 'S' : '-');//先判断是否可所有者执行，再判断可否setuid
+        perm[4] = (st.st_mode & S_IRGRP) ? 'r': '-';//判断有无组读权限
+        perm[5] = (st.st_mode & S_IWGRP) ? 'w': '-';//判断有无组写权限
+        perm[6] = (st.st_mode & S_IXGRP) ? ((st.st_mode & S_ISGID) ? 's': 'x') :((st.st_mode & S_ISGID) ? 'S' : '-');//先判断是否可组执行，再判断可否setgid
+        perm[7] = (st.st_mode & S_IROTH) ? 'r': '-';//判断其他读
+        perm[8] = (st.st_mode & S_IWOTH) ? 'w': '-';//判断其他写
+        perm[9] = (st.st_mode & S_IXOTH) ? ((st.st_mode & S_ISVTX) ? 't': 'x') :((st.st_mode & S_ISVTX) ? 'T' : '-');//先判断其他执行，在判断sticky
+        perm[10] = '\0';
+
+        printf("%s %3lu %8ld %s\n", perm, (unsigned long)st.st_nlink, (long)st.st_size, base);
+        return;
+    }
+    printf("%s\n", base);//保险
 }
 
 bool cmp_dictionary(char* a, char* b)//检查a与b的字典序大小
