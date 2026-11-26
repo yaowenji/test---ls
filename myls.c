@@ -13,7 +13,7 @@
 #include <grp.h>
 #include <limits.h>
 
-char ca[128] = {0};//用ASCII码充当下标，标记字母是否出现过的数组
+char ca[256] = {0};//用ASCII码充当下标，标记字母是否出现过的数组
 
 struct fileid //用于存放文件路径与inode
 {
@@ -36,10 +36,20 @@ void printfile(struct fileid flid, char* s) //用于打印出所需内容（输�
     base = (base != NULL) ? base + 1 : flid.name;//若有'/'则跳过，没有则使用整串
 
     struct stat st;
-    int ok = (lstat(s, &st) == 0);
+    int ok = (lstat(flid.name, &st) == 0);
 
-    if(ca['l'] != 0 && ok != 0)
+    if(ca['i'] != 0)//检测命令i
     {
+        printf("%8lu ", flid.inode);//显示inode号
+    }
+
+    if(ca['l'] != 0 && ok != 0)//检测命令l
+    {
+        if(ca['s'] != 0)//检测命令s
+        {
+            printf("%6ld ", (long)(st.st_blocks / 2));//把512字节块数的st_blocks转换为kb为单位并输出磁盘块数大小
+        }
+
         char perm[11];//建立权限字符缓冲区
 
         perm[0] = filetype(flid.name);//类型位
@@ -54,8 +64,18 @@ void printfile(struct fileid flid, char* s) //用于打印出所需内容（输�
         perm[9] = (st.st_mode & S_IXOTH) ? ((st.st_mode & S_ISVTX) ? 't': 'x') :((st.st_mode & S_ISVTX) ? 'T' : '-');//先判断其他执行，在判断sticky
         perm[10] = '\0';
 
-        printf("%s %3lu %8ld %s\n", perm, (unsigned long)st.st_nlink, (long)st.st_size, base);
+        struct passwd *pw = getpwuid(st.st_uid);//根据uid查出用户名
+        struct group *gr = getgrgid(st.st_gid);//根据gid查出组名
+        char tbuf[64];
+        strftime(tbuf, sizeof(tbuf), "%b %e %H:%M",localtime(&st.st_mtime));//先用st.st_mtime获取文件最后修改时间，再用localtime(&st.st_mtime)把time_t转成本地时间的struct tm*，最后用strftime函数按“月份缩写 日期 小时：分钟”的格式写入tbuf
+
+        printf("%s %3lu %-8s %-8s %8ld %s %s\n", perm, (unsigned long)st.st_nlink, ((pw != NULL) ? pw->pw_name : "?"),  ((gr != NULL) ? gr->gr_name : "?"),(long)st.st_size, tbuf, base);//依序输出权限字符串，硬链接数，用户名，组名，文件大小，格式化后修改时间，文件名
         return;
+    }
+
+    if(ca['l'] == 0 && ca['s'] != 0 && ok != 0)
+    {
+        printf("%6ld ", (long)(st.st_blocks / 2));//检测命令s,显示kb格式的磁盘块大小
     }
     printf("%s\n", base);//保险
 }
@@ -221,6 +241,21 @@ void indexprocess(char* s) //用于处理目录下内容
     closedir(d);
     sort_dictionary(arr, 0, n - 1, s);//导入字典序排序函数进行排序
 
+    if(ca['l'] != 0)//计算并输出总kb格式的磁盘块大小
+    {
+        long total = 0;
+        for(int i = 0 ; i < n ; i++)
+        {
+            struct stat ss;
+            if(lstat(arr[i].name, &ss) == 0) 
+            {
+                total += ss.st_blocks / 2;
+            }
+        }
+        printf("total %ld\n", total);
+    }
+
+
     for(int i = 0 ; i < n ; i++)//使用printfile逐个打印出文件名称
     {
         printfile(arr[i], s);
@@ -255,7 +290,7 @@ int main(int argc, char* argv[]) //主函数，读取命令行参数并加以处
     for(int i = 0 ; i < pathnum ; i++)//导入函数中对目录逐个处理
     {
         struct stat st;
-        if(lstat(paths[i], &st) == 0 && S_ISDIR(st.st_mode) != 0 && (pathnum > 1 || ca['R'] != 0))
+        if(lstat(paths[i], &st) == 0 && S_ISDIR(st.st_mode) != 0 && (pathnum > 1 || ca['R'] != 0))//判断是否需要在列出目录之前打印“路径：”作为标题
         {
             printf("%s:\n", paths[i]);
         }
